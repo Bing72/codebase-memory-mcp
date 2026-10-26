@@ -2128,10 +2128,10 @@ static bool receiver_chain_admits(const char *callee_name, const char *candidate
      * URL carry no underscore and stay guarded. */
     int has_underscore = 0;
     int all_caps = 1;
-    for (const char *c = dotted; c < last_dot && *c != '.'; c++) {
-        if (*c == '_') {
+    for (size_t i = 0; i < w && dotted[i] != '.'; i++) {
+        if (dotted[i] == '_') {
             has_underscore = 1;
-        } else if (*c >= 'a' && *c <= 'z') {
+        } else if (dotted[i] >= 'a' && dotted[i] <= 'z') {
             all_caps = 0;
             break;
         }
