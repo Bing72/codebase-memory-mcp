@@ -274,22 +274,48 @@ def section_start_port_waits_for_settings_writer(binary, work):
     daemon_pid = 0
     holder = None
     client = None
+    warm_pending = False
     try:
-        warm = run_cli(binary, cache, ["daemon", "start"], timeout=60)
-        if warm.returncode != 0 or not pid_from(out_text(warm)):
-            raise SetupFailure("permanent daemon did not start to create _config.db "
-                               "(rc=%s):\n%s" % (warm.returncode, out_text(warm)))
+        # An explicit port makes a non-UI build identify itself. A bare start
+        # also omits `ui:` when its UI handshake fails, so absence is NOT proof.
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        finally:
+            probe.close()
+        warm_pending = True
+        warm = run_cli(binary, cache, ["daemon", "start", "--port=%d" % port], timeout=60)
+        warm_text = out_text(warm)
+        daemon_pid = pid_from(warm_text)
+        if warm.returncode != 0 or not daemon_pid:
+            # --port can fail AFTER starting the daemon, before printing a pid.
+            # A failed UI handshake belongs to this guard, not SetupFailure.
+            print("RED: UI capability probe did not complete (rc=%s):\n%s"
+                  % (warm.returncode, excerpt(warm_text)))
+            return False
         stop = run_cli(binary, cache, ["daemon", "stop"])
         if stop.returncode != 0 or not wait_status_not_running(binary, cache, 45):
             print("RED: the warm-up daemon did not stop cleanly")
             return False
+        warm_pending = False
+        daemon_pid = 0
+        lines = warm_text.splitlines()
+        non_ui = ("warning: this binary was built without UI support; "
+                  "--port/--open have no effect") in lines
+        ui_build = any(line.strip() in (
+            "ui: warming asynchronously on configured port %d" % port,
+            "ui: http://127.0.0.1:%d" % port) for line in lines)
+        if "did not accept the UI configuration" in warm_text or non_ui == ui_build:
+            print("RED: UI capability probe failed or was inconclusive:\n%s"
+                  % excerpt(warm_text))
+            return False
+        if non_ui:
+            print("SKIP: non-UI binary cannot exercise the UI settings-writer handshake")
+            return True
         holder = sqlite3.connect(os.path.join(cache, "_config.db"), isolation_level=None,
                                  timeout=0)
         holder.execute("BEGIN IMMEDIATE")
-        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        probe.bind(("127.0.0.1", 0))
-        port = probe.getsockname()[1]
-        probe.close()
         client = subprocess.Popen([binary, "daemon", "start", "--port=%d" % port],
                                   env=cli_env(cache), stdout=subprocess.PIPE,
                                   stderr=subprocess.STDOUT)
@@ -328,17 +354,23 @@ def section_start_port_waits_for_settings_writer(binary, work):
         print("PASS: `daemon start --port` waits out a held settings writer and starts")
         return True
     finally:
-        if holder is not None:
-            holder.close()
-        if client is not None:
-            if client.poll() is None:
-                client.kill()
-                client.wait()
-            # The client may have started a daemon whose pid was never read (a
-            # failure before its output); a survivor locked the guard root's
-            # binary and failed the next run's residue cleanup.
-            run_cli(binary, cache, ["daemon", "stop"], timeout=60)
-        kill_pid(daemon_pid)
+        try:
+            if holder is not None:
+                holder.close()
+            if client is not None:
+                if client.poll() is None:
+                    client.kill()
+                    client.wait()
+                # The client may have started a daemon whose pid was never read (a
+                # failure before its output); a survivor locked the guard root's
+                # binary and failed the next run's residue cleanup.
+                run_cli(binary, cache, ["daemon", "stop"], timeout=60)
+            elif warm_pending:
+                # UI failure/timeout may omit the pid even though the private
+                # daemon is running. Retire it through this section's namespace.
+                run_cli(binary, cache, ["daemon", "stop"], timeout=60)
+        finally:
+            kill_pid(daemon_pid)
 
 
 def section_stop_refuses_busy(binary, work):

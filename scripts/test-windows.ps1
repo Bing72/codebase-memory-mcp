@@ -104,6 +104,7 @@ Write-Host "Binary: $bin" -ForegroundColor Green
 $previousTemp = $env:TEMP
 $previousTmp = $env:TMP
 $previousTmpDir = $env:TMPDIR
+$previousRuntimeDir = $env:CBM_RUNTIME_DIR
 $guardRoot = $null
 try {
     $userProfile = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
@@ -129,6 +130,12 @@ try {
     )
     $guardAcl.AddAccessRule($guardRule) | Out-Null
     Set-Acl -LiteralPath $guardRoot -AclObject $guardAcl
+
+    # CLI/install guards that do not select their own rendezvous must never
+    # attach to the operator's account-wide daemon. Cache relocation is not enough.
+    $guardRuntime = Join-Path $guardRoot "daemon-runtime"
+    New-Item -ItemType Directory -Path $guardRuntime | Out-Null
+    $env:CBM_RUNTIME_DIR = $guardRuntime
 
     $guardBundle = Join-Path $guardRoot ("cbm-windows-guards-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $guardBundle | Out-Null
@@ -159,6 +166,7 @@ try {
 # UI (build target cbm-with-ui); against a non-UI binary it reports a precondition
 # (exit 2) and is skipped rather than failed.
 $guards = @(
+    "tests\windows\test_content_length_stdio.py",
     "tests\windows\test_non_ascii_path.py",
     "tests\windows\test_non_ascii_cache_dump.py",
     "tests\windows\test_daemon_lifecycle.py",
@@ -220,6 +228,7 @@ if (-not $GuardsOnly) {
     $env:TEMP = $previousTemp
     $env:TMP = $previousTmp
     $env:TMPDIR = $previousTmpDir
+    $env:CBM_RUNTIME_DIR = $previousRuntimeDir
     if ($guardRoot) {
         Remove-Item -LiteralPath $guardRoot -Recurse -Force -ErrorAction SilentlyContinue
     }

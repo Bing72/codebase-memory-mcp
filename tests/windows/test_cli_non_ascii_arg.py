@@ -77,6 +77,8 @@ def main():
         for attempt in ("cache_ascii", "cache_ascii_retry"):
             env = dict(os.environ)
             env["CBM_CACHE_DIR"] = os.path.join(work, attempt)
+            env["CBM_RUNTIME_DIR"] = os.path.join(work, attempt + "_runtime")
+            os.makedirs(env["CBM_RUNTIME_DIR"], exist_ok=True)
             ctrl = subprocess.run(
                 [binary, "cli", "index_repository",
                  json.dumps({"repo_path": ascii_repo})],
@@ -99,6 +101,8 @@ def main():
 
         env2 = dict(os.environ)
         env2["CBM_CACHE_DIR"] = cache
+        env2["CBM_RUNTIME_DIR"] = os.path.join(work, "cache_runtime")
+        os.makedirs(env2["CBM_RUNTIME_DIR"], exist_ok=True)
         # Exercise the DEFAULT (supervisor-enabled) path, not in-process. The non-ASCII
         # repo path must survive BOTH the argv read (main() wide command line) AND the
         # supervisor -> worker spawn (CreateProcessW). The suite runner sets
@@ -125,6 +129,8 @@ def main():
         make_fixture(cjk_repo)
         env3 = dict(os.environ)
         env3["CBM_CACHE_DIR"] = os.path.join(work, "cache_cjk")
+        env3["CBM_RUNTIME_DIR"] = os.path.join(work, "cache_cjk_runtime")
+        os.makedirs(env3["CBM_RUNTIME_DIR"], exist_ok=True)
         env3.pop("CBM_INDEX_SUPERVISOR", None)
         p2 = subprocess.run([binary, "cli", "index_repository",
                              "--repo-path", cjk_repo, "--mode", "fast"],

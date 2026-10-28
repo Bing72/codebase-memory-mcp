@@ -193,8 +193,9 @@ def verify_relocated_runtime(binary, work):
     env["XDG_CACHE_HOME"] = os.path.join(work, "runtime_xdg_cache")
     env["XDG_DATA_HOME"] = os.path.join(work, "runtime_xdg_data")
     env["CBM_CACHE_DIR"] = os.path.join(work, "runtime_cache")
+    env["CBM_RUNTIME_DIR"] = os.path.join(work, "runtime_rendezvous")
     for inherited_config in (
-            "CLAUDE_CONFIG_DIR", "CODEX_HOME", "COPILOT_HOME",
+            "CLAUDE_CONFIG_DIR", "CODEX_HOME", "HERMES_HOME", "COPILOT_HOME",
             "CRUSH_GLOBAL_CONFIG", "OPENCLAW_CONFIG_PATH", "OPENCLAW_HOME",
             "OPENCLAW_PROFILE", "OPENCLAW_STATE_DIR", "OPENCLAW_WORKSPACE_DIR",
             "OPENCODE_CONFIG", "OPENCODE_CONFIG_DIR", "VIBE_HOME"):
@@ -202,7 +203,7 @@ def verify_relocated_runtime(binary, work):
     for directory in (
             env["HOME"], env["APPDATA"], env["LOCALAPPDATA"],
             env["XDG_CONFIG_HOME"], env["XDG_CACHE_HOME"],
-            env["XDG_DATA_HOME"], env["CBM_CACHE_DIR"]):
+            env["XDG_DATA_HOME"], env["CBM_CACHE_DIR"], env["CBM_RUNTIME_DIR"]):
         os.makedirs(directory, exist_ok=True)
 
     def stop_runtime_daemon():
@@ -306,7 +307,7 @@ def verify_relocated_runtime(binary, work):
     )
     if uninstall.returncode != 0:
         return fail("long-path uninstall rc=%d output=%r" % (
-            uninstall.returncode, uninstall.stdout[-1200:]))
+            uninstall.returncode, uninstall.stdout))
     if os.path.exists(installed_extended):
         return fail("long-path uninstall retained the installed executable")
     stop_runtime_daemon()
@@ -517,6 +518,8 @@ def main():
                     cli_cache = os.path.join(work, "c3_" + key)
                     cli_env = os.environ.copy()
                     cli_env["CBM_CACHE_DIR"] = cli_cache
+                    cli_env["CBM_RUNTIME_DIR"] = cli_cache + "_runtime"
+                    os.makedirs(cli_env["CBM_RUNTIME_DIR"], exist_ok=True)
                     # CBM_PROFILE keeps the supervisor from unlinking the worker
                     # log on a clean exit (index.supervisor.profile_log), which
                     # is the only record of the pipeline's own diagnostics.

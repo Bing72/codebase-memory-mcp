@@ -603,6 +603,36 @@ scripts/build.sh                    # without the UI (development only)
 
 The `--with-ui` build embeds CBM Lens and the agent integration templates into the native executable. You do not need Node.js to run that executable. Optional browser model weights are downloaded separately after opt-in.
 
+#### Native Windows builds from reviewed local sources
+
+Run `scripts/build.sh` from Git Bash with an existing MinGW GCC or Clang
+toolchain. The wrapper discovers GNU `make`, `gmake`, or `mingw32-make`;
+`MAKE` can select one executable explicitly. Existing vendored sources can be
+reused without downloading replacements:
+
+```bash
+bash scripts/build.sh --reuse-vendored SANITIZE=
+bash tests/test_build_make_selection.sh
+python tests/windows/test_printf_format.py
+python tests/windows/test_product_response_file.py
+python tests/windows/test_utf8_environment.py
+python tests/windows/test_mcp_stdio_isolation.py
+python tests/windows/test_content_length_stdio.py build/c/codebase-memory-mcp.exe
+```
+
+The framing guard drives the real daemon-backed MCP entrypoint, including CRLF
+inside a byte-counted request. Test caches also receive a separate daemon runtime
+directory. If a shared temporary directory has mutation-capable ACLs for other
+accounts, pass `--state-dir <owner-private-validation-directory>` to the framing
+guard; do not disable the private-directory checks. The optional directory keeps
+the validation state for inspection and must have trusted ancestors. The native
+PowerShell guard runner stages its own owner-private test root. Non-UI builds
+explicitly skip the UI settings-writer handshake; UI coverage needs a UI build.
+The runtime-relocation guard executes real install/uninstall operations and can
+modify the current user's Windows PATH registry value. A fake HOME does not
+isolate that registry: obtain approval and verify PATH restoration independently;
+do not use this guard as a non-destructive MCP smoke check.
+
 #### Tests
 
 Counts on `main` at `4d9592b5`, where CBM Lens arrived. Native and Go counts use the macOS configuration; platform-specific registrations differ.

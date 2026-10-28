@@ -125,6 +125,45 @@ if [[ "${CBM_NO_CCACHE:-0}" != "1" ]] && command -v ccache >/dev/null 2>&1; then
     export CCACHE_COMPILERCHECK=content
 fi
 
+# GNU make is named mingw32-make in native MinGW installations. Resolve it
+# before a caller cleans its build directory; an explicit MAKE must not be
+# silently replaced with a different executable. Never eval a command string.
+cbm_configure_make() {
+    local candidate version shell_path
+    CBM_MAKE=""
+    CBM_MAKE_ARGS=()
+    for candidate in "${MAKE:-}" make gmake mingw32-make; do
+        [[ -n "$candidate" ]] || continue
+        if CBM_MAKE="$(command -v "$candidate" 2>/dev/null)" &&
+           version="$("$CBM_MAKE" --version 2>/dev/null)" &&
+           [[ "$version" == *"GNU Make"* ]]; then
+            break
+        fi
+        CBM_MAKE=""
+        if [[ -n "${MAKE:-}" ]]; then
+            echo "ERROR: MAKE must name an installed GNU make executable: $MAKE" >&2
+            return 1
+        fi
+    done
+    if [[ -z "$CBM_MAKE" ]]; then
+        echo "ERROR: GNU make not found (make, gmake, or mingw32-make)" >&2
+        return 1
+    fi
+    if [[ "$OS" == windows ]]; then
+        shell_path="$(command -v sh)" || return 1
+        # Native make cannot resolve Git Bash's /usr/bin/sh itself. Pass a
+        # Windows path explicitly, including when MSYS argument conversion is off.
+        if command -v cygpath >/dev/null 2>&1; then
+            shell_path="$(cygpath -m "$shell_path")" || return 1
+        fi
+        CBM_MAKE_ARGS+=("SHELL=$shell_path")
+    fi
+}
+
+cbm_make() {
+    "$CBM_MAKE" "${CBM_MAKE_ARGS[@]+"${CBM_MAKE_ARGS[@]}"}" "$@"
+}
+
 # ── Print environment summary ──────────────────────────────────
 print_env() {
     local context="$1"

@@ -162,6 +162,7 @@ echo "  ui=$WITH_UI version=${VERSION:-dev}"
 
 # Verify compiler supports target arch
 verify_compiler "$CC"
+cbm_configure_make
 
 if [[ "$PHASE" != all ]] && $WITH_UI; then
     echo "build.sh: --vendored-only / --reuse-vendored do not combine with --with-ui. Please consult --help." >&2
@@ -195,15 +196,15 @@ fi
 
 # Step 2: Build (Makefile applies $ARCHFLAGS for the target arch on macOS)
 if [[ "$PHASE" == vendored ]]; then
-    make -j"$NPROC" -f Makefile.cbm cbm-third-party \
+    cbm_make -j"$NPROC" -f Makefile.cbm cbm-third-party \
         CFLAGS_EXTRA="$CFLAGS_EXTRA" "${EXTRA_MAKE_ARGS[@]+"${EXTRA_MAKE_ARGS[@]}"}"
     echo "=== Third-party objects built in ${BUILD_DIR} (no binary) ==="
     exit 0
 elif $WITH_UI; then
-    make -j"$NPROC" -f Makefile.cbm cbm-with-ui \
+    cbm_make -j"$NPROC" -f Makefile.cbm cbm-with-ui \
         CFLAGS_EXTRA="$CFLAGS_EXTRA" "${EXTRA_MAKE_ARGS[@]+"${EXTRA_MAKE_ARGS[@]}"}"
 else
-    make -j"$NPROC" -f Makefile.cbm cbm "${RETRACE_ARGS[@]+"${RETRACE_ARGS[@]}"}" \
+    cbm_make -j"$NPROC" -f Makefile.cbm cbm "${RETRACE_ARGS[@]+"${RETRACE_ARGS[@]}"}" \
         CFLAGS_EXTRA="$CFLAGS_EXTRA" "${EXTRA_MAKE_ARGS[@]+"${EXTRA_MAKE_ARGS[@]}"}"
 fi
 

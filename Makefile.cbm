@@ -1338,11 +1338,18 @@ $(BUILD_DIR)/.build-config: build-config-check | $(BUILD_DIR)
 	echo "=== build config changed -> full rebuild: $(BUILD_CONFIG_SIG) ==="; fi
 
 $(BUILD_DIR)/codebase-memory-mcp: $(MAIN_SRC) $(PROD_SRCS) $(EXTRACTION_SRCS) $(AC_LZ4_SRCS) $(ZSTD_SRCS) $(SQLITE_WRITER_SRC) $(OBJS_VENDORED_PROD) $(BUILD_DIR)/.build-config $(PROJECT_HDRS) | $(BUILD_DIR)
+ifeq ($(IS_MINGW),yes)
+	# A quoted version define makes native make use a shell. Long command lines
+	# can then be truncated at 8192 bytes; keep product inputs in a response file.
+	$(file >$@.rsp,$(MAIN_SRC) $(PROD_SRCS) $(EXTRACTION_SRCS) $(AC_LZ4_SRCS) $(ZSTD_SRCS) $(SQLITE_WRITER_SRC) $(OBJS_VENDORED_PROD) $(LDFLAGS))
+	$(CC) $(CFLAGS_PROD) -o $@ @$@.rsp
+else
 	$(CC) $(CFLAGS_PROD) -o $@ \
 		$(MAIN_SRC) $(PROD_SRCS) \
 		$(EXTRACTION_SRCS) $(AC_LZ4_SRCS) $(ZSTD_SRCS) $(SQLITE_WRITER_SRC) \
 		$(OBJS_VENDORED_PROD) \
 		$(LDFLAGS)
+endif
 
 cbm: $(BUILD_DIR)/codebase-memory-mcp
 	@echo "Built: $(BUILD_DIR)/codebase-memory-mcp"

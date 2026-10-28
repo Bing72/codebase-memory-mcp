@@ -33,6 +33,7 @@
 #endif
 /* pipeline.h no longer needed — indexing runs as subprocess */
 #include "foundation/log.h"
+#include "foundation/format.h"
 #include "foundation/mem_core.h"
 #include "foundation/json_writer.h"
 #include "foundation/platform.h"
@@ -518,7 +519,7 @@ void cbm_ui_log_close(void) {
  * call computes a wrapped (huge) remaining size and writes out of bounds. This
  * clamps: on truncation *pos is pinned at bufsz and further appends are no-ops. */
 static void http_appendf(char *buf, size_t bufsz, int *pos, const char *fmt, ...)
-    __attribute__((format(printf, 4, 5)));
+    CBM_PRINTF_FORMAT(4, 5);
 static void http_appendf(char *buf, size_t bufsz, int *pos, const char *fmt, ...) {
     if (*pos < 0) {
         return;

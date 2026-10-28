@@ -17,6 +17,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
+#endif
+
 enum {
     FRONTEND_QUEUE_CAPACITY = 8,
     FRONTEND_QUEUE_BYTES_MAX = 12 * 1024 * 1024,
@@ -661,6 +666,13 @@ int cbm_daemon_frontend_mcp_run(cbm_daemon_runtime_client_t *client,
     if (!client || !cohort_manager || !in || !out) {
         return -1;
     }
+#ifdef _WIN32
+    /* Content-Length counts bytes: the CRT must not translate CRLF on either pipe. */
+    if (_setmode(cbm_fileno(in), _O_BINARY) < 0 || _setmode(cbm_fileno(out), _O_BINARY) < 0) {
+        (void)cbm_daemon_runtime_client_close(client, FRONTEND_CLOSE_TIMEOUT_MS);
+        return -1;
+    }
+#endif
     frontend_state_t state = {
         .client = client,
         .cohort_manager = cohort_manager,

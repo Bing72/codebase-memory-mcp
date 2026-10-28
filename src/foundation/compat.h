@@ -19,6 +19,7 @@
  * it those calls become implicit declarations that conflict with the real
  * stdlib.h types and fail to compile on native ARM64 Windows. */
 #include <stdlib.h>
+#include <string.h>
 
 /* ── Thread-local storage ─────────────────────────────────────── */
 /* _Thread_local is C11 standard — works on GCC, Clang, and MSVC (2019+).
@@ -171,6 +172,15 @@ static inline int cbm_setenv(const char *name, const char *value, int overwrite)
      * value. _putenv_s alone routes UTF-8 path bytes through the active ANSI
      * code page, which corrupts non-ASCII cache roots inherited by children. */
     int status = _putenv_s(name, value);
+    /* A non-UTF-8 Windows code page can reject the OS conversion AFTER the
+     * CRT has stored the UTF-8 bytes. Recover only with exact CRT readback;
+     * every other failure remains closed, and the wide OS update is checked. */
+    if (status == EILSEQ) {
+        const char *stored = getenv(name);
+        if (stored && strcmp(stored, value) == 0) {
+            status = 0;
+        }
+    }
     if (status == 0 && !SetEnvironmentVariableW(wide_name, wide_value)) {
         status = EINVAL;
     }

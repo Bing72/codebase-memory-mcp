@@ -26,10 +26,14 @@ class McpServer:
         self.proc = None
         self._stderr = []
         env = dict(os.environ)
-        if cache_dir:
-            env["CBM_CACHE_DIR"] = cache_dir  # isolate the graph DB location
         if extra_env:
             env.update(extra_env)
+        if cache_dir:
+            env["CBM_CACHE_DIR"] = os.fspath(cache_dir)
+            # Cache relocation does not isolate daemon rendezvous. Override both
+            # inherited and extra_env namespaces before a fixture spawns a client.
+            env["CBM_RUNTIME_DIR"] = os.path.join(os.fspath(cache_dir), "runtime")
+            os.makedirs(env["CBM_RUNTIME_DIR"], exist_ok=True)
         self.env = env
         self.cwd = cwd
 
